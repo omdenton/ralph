@@ -1,0 +1,24 @@
+services:
+  ralph:
+    build: .
+    container_name: ralph
+    volumes:
+      # Mount the entire parent directory (ralph-loop) to /app
+      - ..:/app
+      # Mount Claude CLI credentials (for Pro subscription auth)
+      - ~/.claude:/home/ralph/.claude
+    environment:
+      # Long-lived OAuth token from 'claude setup-token' (uses Pro subscription)
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+    # Resource limits - adjust as needed
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+    # Keep container running for interactive use
+    stdin_open: true
+    tty: true
+    # Network access enabled by default - remove for isolation
+    # network_mode: none
+    working_dir: /app/project

@@ -1,0 +1,163 @@
+# Ralph Loop
+
+A containerized setup for running autonomous Claude Code loops using the [Ralph Wiggum technique](https://ghuntley.com/ralph/).
+
+## How It Works
+
+The loop runs Claude Code repeatedly in a bash while loop. Each iteration:
+
+1. Feeds a prompt file to Claude
+2. Claude does work, modifies files
+3. Context clears when Claude exits
+4. Loop restarts with fresh context, but files on disk persist
+5. Repeat until done (or you hit Ctrl+C)
+
+### Mode
+
+The loop runs both planning and building steps sequentially in each iteration until it detects no change in output for 5 consecutive iterations.
+**Planning** - Claude reads specs, explores the codebase, and builds/updates a task list in `IMPLEMENTATION_PLAN.md`.
+**Building** - Claude picks one task from the plan, implements it, validates (tests/lint), commits, and marks it done. One task per iteration.
+
+### State Persistence
+
+Context clears between iterations, but state lives in files:
+
+| File | Purpose |
+|------|---------|
+| `IMPLEMENTATION_PLAN.md` | Tracks completed tasks and backlog |
+| `AGENTS.md` | Operational notes, learnings, gotchas |
+| `src/` | Your actual code |
+| `specs/` | Requirements and specifications |
+
+### The Container
+
+- Isolates Claude so it can't damage your host system
+- Ubuntu 24.04 with Python, Node, and common dev tools
+- OAuth token passed via environment variable
+- Resource limits (CPU/memory) prevent runaway processes
+- Sudo access for installing packages
+
+### The Philosophy
+
+- Each iteration starts fresh (no context bleed between runs)
+- State lives in files, not in Claude's memory
+- "Let Ralph Ralph" - trust it to self-correct through iteration
+- Validation gates (tests, types, lint) enforce quality
+
+## Prerequisites
+
+Before you begin, ensure you have the following software installed on your host machine:
+
+1.  **Docker Engine** or **Docker Desktop**: This is required to build and run the containerized agent.
+    -   *Installation*: Follow the official instructions for your operating system at [docs.docker.com/get-docker](https://docs.docker.com/get-docker/).
+
+2.  **Node.js and npm**: The `claude` command-line tool requires Node.js.
+    -   *Installation*: Download and install Node.js from [nodejs.org](https://nodejs.org/).
+
+3.  **Claude Code CLI**: This tool is needed to generate the authentication token used by the agent.
+    -   *Installation*: Once Node.js and npm are installed, run the following command in your terminal:
+        ```bash
+        npm install -g @anthropic-ai/claude-code
+        ```
+
+## Quick Start
+
+```bash
+# 1. Get OAuth token for non-interactive usage
+claude setup-token
+# Copy the token it gives you
+
+# 2. Set up your agent/.env file
+#    This file contains the OAuth token for the Claude Code CLI.
+#    Create agent/.env (e.g., using 'touch agent/.env') and paste your CLAUDE_CODE_OAUTH_TOKEN into it.
+#    Example content for agent/.env:
+#    CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
+
+# 3. From the project root, build the container
+docker compose -f agent/docker-compose.yml build
+
+# 4. Start the container. This will drop you into a shell inside the container.
+docker compose -f agent/docker-compose.yml run --rm ralph
+
+# 5. Inside the container, you are in the /app/project directory.
+#    Run the loop by executing the script from the agent directory:
+../agent/loop.sh
+```
+
+## Usage
+
+From inside the container's shell (at the `/app/project` path):
+```bash
+../agent/loop.sh              # Runs plan and build sequentially until no change
+```
+
+Press `Ctrl+C` to stop the loop at any time. Progress is saved in the `project/` directory - just restart the container and the loop to continue.
+
+The loop will automatically stop if it detects the same output 3 times in a row (stuck loop protection).
+
+
+
+## Customization
+
+### Adding Tools/Languages
+
+Edit `agent/Dockerfile` to add runtimes or tools:
+
+```dockerfile
+# Example: Add Go
+RUN curl -fsSL https://go.dev/dl/go1.22.0.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+ENV PATH="/usr/local/go/bin:$PATH"
+```
+
+Rebuild with `docker compose -f agent/docker-compose.yml build`.
+
+Claude can also install packages at runtime with sudo.
+
+### Modifying Prompts
+
+Edit `agent/PROMPT_plan.md` and `agent/PROMPT_build.md` to change Claude's behavior. Key things to tune:
+
+- Validation commands (pytest, mypy, ruff, etc.)
+- Task selection criteria
+- Commit message format
+
+### Resource Limits
+
+Edit `agent/docker-compose.yml` to adjust CPU/memory limits:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '4'
+      memory: 8G
+```
+
+### Network Isolation
+
+To fully isolate the container from the network, uncomment in `agent/docker-compose.yml`:
+
+```yaml
+network_mode: none
+```
+
+Note: You need network access for Claude API calls.
+
+## Workflow
+
+1. **Write specs** - Create markdown files in `specs/` describing what you want built
+2. **Run loop** - `./loop.sh` executes planning then building sequentially until no change is detected (stuck loop protection).
+3. **Monitor** - Watch the output, Ctrl+C if it goes off track.
+4. **Iterate (manually)** - Adjust specs, code, or prompts and restart `./loop.sh` to continue the process.
+
+## Safety Notes
+
+- The container runs with `--dangerously-skip-permissions` which bypasses Claude's safety prompts
+- The Docker container is your security boundary
+- Don't mount sensitive directories (`.ssh`, `.aws`, etc.)
+- Your project IS accessible to Claude - use git for recovery
+- `~/.claude` is mounted for authentication - this only allows API access, not host system access
+
+## Credits
+
+Based on [Geoffrey Huntley's Ralph Wiggum technique](https://ghuntley.com/ralph/) and his [coding agent workshop](https://ghuntley.com/agent/).
