@@ -44,6 +44,36 @@ Context clears between iterations, but state lives in files:
 - "Let Ralph Ralph" - trust it to self-correct through iteration
 - Validation gates (tests, types, lint) enforce quality
 
+## Project Structure
+
+This repository contains the `agent` folder, which is the core of the Ralph Loop project. It is recommended to structure your project as follows:
+
+```
+your-project/
+├── agent/         # This repository
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   ├── loop.sh
+│   └── ...
+├── src/           # Your application code
+├── specs/         # Your project specifications
+└── ...            # Other project files
+```
+
+This structure separates the agent's code from your project's code, making it easier to manage both.
+
+## Getting Started
+
+To get started with Ralph Loop, you need to clone this repository into your project folder.
+
+```bash
+# 1. Navigate to your project folder
+cd your-project
+
+# 2. Clone this repository into the 'agent' folder
+git clone git@github.com:omdenton/ralph.git agent
+```
+
 ## Prerequisites
 
 Before you begin, ensure you have the following software installed on your host machine:
