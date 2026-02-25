@@ -1,3 +1,5 @@
+> **Warning:** I'm a manager, not a developer. I have no idea what I'm doing. This is not real code. Use at your own peril.
+
 # Ralph Loop
 
 A containerized setup for running autonomous Claude Code loops using the [Ralph Wiggum technique](https://ghuntley.com/ralph/).
