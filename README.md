@@ -105,13 +105,11 @@ claude setup-token
 #    Example content for agent/.env:
 #    CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
 
-# 3. From the project root, build the container
-docker compose -f agent/docker-compose.yml build
+# 3. Build and start the container (from the agent directory)
+cd agent
+make start
 
-# 4. Start the container. This will drop you into a shell inside the container.
-docker compose -f agent/docker-compose.yml run --rm ralph
-
-# 5. Inside the container, you are in the /app/project directory.
+# 4. Inside the container, you are in the /app/project directory.
 #    Run the loop by executing the script from the agent directory:
 ../agent/loop.sh
 ```
