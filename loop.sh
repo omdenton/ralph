@@ -78,7 +78,7 @@ while true; do
     fi
 
     echo "========================================="
-    echo "Ralph iteration complete. Sleeping for 60 seconds... ($(date))"
+    echo "Ralph iteration complete. Sleeping for 15 seconds... ($(date))"
     echo "========================================="
-    sleep 60
+    sleep 15
 done
