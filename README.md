@@ -188,7 +188,7 @@ Note: You need network access for Claude API calls.
 - The Docker container is your security boundary
 - Don't mount sensitive directories (`.ssh`, `.aws`, etc.)
 - Your project IS accessible to Claude - use git for recovery
-- `~/.claude` is mounted for authentication - this only allows API access, not host system access
+- `~/.claude` and `~/.claude.json` are mounted for authentication - this only allows API access, not host system access
 
 ## Credits
 

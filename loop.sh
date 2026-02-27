@@ -11,6 +11,16 @@ STUCK_THRESHOLD=3 # Reverting to original README value
 stuck_count=0
 TEMP_OUTPUT_FILE="/tmp/claude_output.$$" # Unique temporary file for output
 
+# Auto-restore .claude.json if it's missing but a backup exists
+# (This helps fix the "Claude configuration file not found" error)
+if [ ! -f "/home/ralph/.claude.json" ]; then
+    BACKUP=$(ls -t /home/ralph/.claude/backups/.claude.json.backup.* 2>/dev/null | head -n 1)
+    if [ -n "$BACKUP" ]; then
+        echo "INFO: .claude.json not found, restoring from latest backup: $BACKUP"
+        cp "$BACKUP" "/home/ralph/.claude.json"
+    fi
+fi
+
 while true; do
     # Capture git state before iteration
     git_hash_before=$(git rev-parse HEAD 2>/dev/null || echo "none")
