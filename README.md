@@ -124,8 +124,9 @@ Run these from the `agent/` directory:
 | Command | Description |
 |---------|-------------|
 | `make start` | Build (if needed), start the container, and run the loop with Claude |
+| `make start-gemini` | Build (if needed), start the container, and run the loop with Gemini |
 | `make loop` | Same as `make start` |
-| `make loop-gemini` | Build (if needed), start the container, and run the loop with Gemini |
+| `make loop-gemini` | Same as `make start-gemini` |
 | `make build` | Build the container image without starting |
 | `make clean` | Stop and remove the container image |
 
