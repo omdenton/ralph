@@ -1,6 +1,6 @@
 > **Warning:** I'm a manager, not a developer. I have no idea what I'm doing. This is not real code. Use at your own peril.
 
-# Ralph Loop v1.10
+# Ralph Loop v1.11
 
 A containerized setup for running autonomous Claude Code loops using the [Ralph Wiggum technique](https://ghuntley.com/ralph/).
 
@@ -112,13 +112,9 @@ claude setup-token
 #    Example content for agent/.env:
 #    CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...
 
-# 3. Build and start the container (from the agent directory)
+# 3. Build and start the container and loop (from the agent directory)
 cd agent
 make start
-
-# 4. Inside the container, you are in the /app/project directory.
-#    Run the loop by executing the script from the agent directory:
-../agent/loop.sh
 ```
 
 ## Makefile Commands
@@ -127,19 +123,13 @@ Run these from the `agent/` directory:
 
 | Command | Description |
 |---------|-------------|
-| `make start` | Build (if needed) and start the container |
+| `make start` | Build (if needed), start the container, and run the loop with Claude |
+| `make loop` | Same as `make start` |
+| `make loop-gemini` | Build (if needed), start the container, and run the loop with Gemini |
 | `make build` | Build the container image without starting |
 | `make clean` | Stop and remove the container image |
 
-## Usage
-
-From inside the container's shell (at the `/app/project` path):
-```bash
-../agent/loop.sh              # Run with Claude Code (default)
-../agent/loop.sh --gemini     # Run with Gemini CLI instead
-```
-
-Press `Ctrl+C` to stop the loop at any time. Progress is saved in the `project/` directory - just restart the container and the loop to continue.
+Press `Ctrl+C` to stop the loop at any time. Progress is saved in the `project/` directory - just re-run to continue.
 
 The loop will automatically stop if it detects the same output 3 times in a row (stuck loop protection).
 
