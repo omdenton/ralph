@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# Parse flags
+USE_GEMINI=false
+for arg in "$@"; do
+    if [ "$arg" = "--gemini" ]; then
+        USE_GEMINI=true
+    fi
+done
+
+# Set AI command
+if [ "$USE_GEMINI" = true ]; then
+    AI_CMD="gemini --yolo"
+    echo "Using Gemini CLI"
+else
+    AI_CMD="$AI_CMD"
+    echo "Using Claude Code"
+fi
+
 # Ensure AGENTS.md and IMPLEMENTATION_PLAN.md exist
 touch AGENTS.md
 touch IMPLEMENTATION_PLAN.md
@@ -30,8 +47,8 @@ while true; do
     echo "========================================="
 
     # Execute the AI in planning mode and capture output
-    if ! claude --dangerously-skip-permissions < /app/agent/PROMPT_plan.md 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
-        echo "ERROR: Claude-Code (Planning) failed. Sleeping longer before retry."
+    if ! $AI_CMD < /app/agent/PROMPT_plan.md 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
+        echo "ERROR: AI (Planning) failed. Sleeping longer before retry."
         sleep 300 # Longer sleep on error
         rm -f "$TEMP_OUTPUT_FILE" # Clean up temp file
         continue
@@ -43,8 +60,8 @@ while true; do
     echo "========================================="
 
     # Execute the AI in build mode and capture output
-    if ! claude --dangerously-skip-permissions < /app/agent/PROMPT_build.md 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
-        echo "ERROR: Claude-Code (Build) failed. Sleeping longer before retry."
+    if ! $AI_CMD < /app/agent/PROMPT_build.md 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
+        echo "ERROR: AI (Build) failed. Sleeping longer before retry."
         sleep 300 # Longer sleep on error
         rm -f "$TEMP_OUTPUT_FILE" # Clean up temp file
         continue

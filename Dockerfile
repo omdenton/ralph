@@ -24,8 +24,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code and Gemini CLI globally
+RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # Create non-root user with UID 1000 to match host user (for mounted credentials)
 # Remove existing user with UID 1000 if present (ubuntu base image has 'ubuntu' user)

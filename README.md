@@ -92,6 +92,13 @@ Before you begin, ensure you have the following software installed on your host 
         npm install -g @anthropic-ai/claude-code
         ```
 
+4.  **Gemini CLI** *(optional)*: Required only if you want to run the loop with Gemini instead of Claude.
+    -   *Installation*:
+        ```bash
+        npm install -g @google/gemini-cli
+        ```
+    -   *API Key*: Get one from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and add it to your `agent/.env` file as `GEMINI_API_KEY=...`
+
 ## Quick Start
 
 ```bash
@@ -128,7 +135,8 @@ Run these from the `agent/` directory:
 
 From inside the container's shell (at the `/app/project` path):
 ```bash
-../agent/loop.sh              # Runs plan and build sequentially until no change
+../agent/loop.sh              # Run with Claude Code (default)
+../agent/loop.sh --gemini     # Run with Gemini CLI instead
 ```
 
 Press `Ctrl+C` to stop the loop at any time. Progress is saved in the `project/` directory - just restart the container and the loop to continue.

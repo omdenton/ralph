@@ -11,6 +11,8 @@ services:
     environment:
       # Long-lived OAuth token from 'claude setup-token' (uses Pro subscription)
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+      # Gemini API key from https://aistudio.google.com/apikey
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     # Resource limits - adjust as needed
     deploy:
       resources:
