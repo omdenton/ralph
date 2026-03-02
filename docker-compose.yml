@@ -8,6 +8,8 @@ services:
       # Mount Claude CLI credentials (for Pro subscription auth)
       - ~/.claude:/home/ralph/.claude
       - ~/.claude.json:/home/ralph/.claude.json
+      # Mount Gemini CLI credentials (for OAuth auth)
+      - ~/.gemini:/home/ralph/.gemini
     environment:
       # Long-lived OAuth token from 'claude setup-token' (uses Pro subscription)
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}

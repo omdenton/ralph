@@ -95,10 +95,14 @@ if command -v gemini &>/dev/null; then
     echo "PASS: gemini binary is available ($(command -v gemini))"
     PASS=$((PASS + 1))
 
-    # If GEMINI_API_KEY is set, do a live smoke test
-    if [ -n "$GEMINI_API_KEY" ]; then
-        echo "INFO: GEMINI_API_KEY is set — running live smoke test..."
-        RESPONSE=$(echo "Reply with only the word: pong" | gemini --yolo 2>&1)
+    # Run live smoke test if authenticated (API key or OAuth creds)
+    GEMINI_AUTHED=false
+    [ -n "$GEMINI_API_KEY" ] && GEMINI_AUTHED=true
+    [ -f "$HOME/.gemini/oauth_creds.json" ] && GEMINI_AUTHED=true
+
+    if [ "$GEMINI_AUTHED" = true ]; then
+        echo "INFO: Gemini auth found — running live smoke test..."
+        RESPONSE=$(echo "Reply with only the word: pong" | gemini --yolo -p "" 2>&1)
         if echo "$RESPONSE" | grep -qi "pong"; then
             echo "PASS: Gemini live smoke test (got 'pong')"
             PASS=$((PASS + 1))
@@ -108,7 +112,7 @@ if command -v gemini &>/dev/null; then
             FAIL=$((FAIL + 1))
         fi
     else
-        echo "INFO: GEMINI_API_KEY not set — skipping live smoke test"
+        echo "INFO: No Gemini auth found — skipping live smoke test"
     fi
 else
     echo "SKIP: gemini binary not found (install with: npm install -g @google/gemini-cli)"
