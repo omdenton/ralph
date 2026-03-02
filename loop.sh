@@ -13,7 +13,7 @@ if [ "$USE_GEMINI" = true ]; then
     AI_CMD="gemini --yolo"
     echo "Using Gemini CLI"
 else
-    AI_CMD="$AI_CMD"
+    AI_CMD="claude --dangerously-skip-permissions"
     echo "Using Claude Code"
 fi
 
