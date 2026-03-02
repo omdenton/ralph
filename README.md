@@ -1,6 +1,6 @@
 > **Warning:** I'm a manager, not a developer. I have no idea what I'm doing. This is not real code. Use at your own peril.
 
-# Ralph Loop
+# Ralph Loop v1.10
 
 A containerized setup for running autonomous Claude Code loops using the [Ralph Wiggum technique](https://ghuntley.com/ralph/).
 
@@ -114,6 +114,16 @@ make start
 ../agent/loop.sh
 ```
 
+## Makefile Commands
+
+Run these from the `agent/` directory:
+
+| Command | Description |
+|---------|-------------|
+| `make start` | Build (if needed) and start the container |
+| `make build` | Build the container image without starting |
+| `make clean` | Stop and remove the container image |
+
 ## Usage
 
 From inside the container's shell (at the `/app/project` path):
@@ -139,7 +149,7 @@ RUN curl -fsSL https://go.dev/dl/go1.22.0.linux-amd64.tar.gz | tar -C /usr/local
 ENV PATH="/usr/local/go/bin:$PATH"
 ```
 
-Rebuild with `docker compose -f agent/docker-compose.yml build`.
+Rebuild with `make build` from the `agent/` directory.
 
 Claude can also install packages at runtime with sudo.
 
