@@ -8,6 +8,8 @@ services:
       # Mount Claude CLI credentials (for Pro subscription auth)
       - ~/.claude:/home/ralph/.claude
       - ~/.claude.json:/home/ralph/.claude.json
+      # Mount GitHub CLI credentials (for private repo creation + push)
+      - ~/.config/gh:/home/ralph/.config/gh
       # Mount Gemini CLI credentials (for OAuth auth)
       - ~/.gemini:/home/ralph/.gemini
     environment:
