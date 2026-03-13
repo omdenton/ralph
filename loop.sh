@@ -17,6 +17,44 @@ else
     echo "Using Claude Code"
 fi
 
+# ---------------------------------------------------------------------------
+# Self-update: pull non-breaking (minor/patch) updates from remote
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION_FILE="$SCRIPT_DIR/VERSION"
+
+if [ -f "$VERSION_FILE" ] && [ -d "$SCRIPT_DIR/.git" ]; then
+    LOCAL_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+    LOCAL_MAJOR=$(echo "$LOCAL_VERSION" | cut -d. -f1)
+
+    # Fetch latest from remote without merging
+    if git -C "$SCRIPT_DIR" fetch origin --quiet 2>/dev/null; then
+        REMOTE_VERSION=$(git -C "$SCRIPT_DIR" show origin/master:VERSION 2>/dev/null | tr -d '[:space:]')
+
+        if [ -n "$REMOTE_VERSION" ] && [ "$REMOTE_VERSION" != "$LOCAL_VERSION" ]; then
+            REMOTE_MAJOR=$(echo "$REMOTE_VERSION" | cut -d. -f1)
+
+            if [ "$REMOTE_MAJOR" = "$LOCAL_MAJOR" ]; then
+                echo "INFO: Updating ralph $LOCAL_VERSION -> $REMOTE_VERSION (non-breaking)..."
+                if git -C "$SCRIPT_DIR" pull --ff-only origin master 2>&1; then
+                    echo "INFO: Update successful. Restarting loop with new version..."
+                    exec "$SCRIPT_DIR/loop.sh" "$@"
+                else
+                    echo "WARNING: Update failed (merge conflict?). Continuing with $LOCAL_VERSION."
+                fi
+            else
+                echo "WARNING: Major update available ($LOCAL_VERSION -> $REMOTE_VERSION). Skipping — update manually."
+            fi
+        else
+            echo "INFO: ralph $LOCAL_VERSION is up to date."
+        fi
+    else
+        echo "INFO: Could not reach ralph remote. Skipping update check."
+    fi
+else
+    echo "INFO: No VERSION file or not a git repo. Skipping update check."
+fi
+
 # Ensure git repo exists
 if [ ! -d ".git" ]; then
     echo "INFO: No git repository found in $(pwd). Initializing..."
