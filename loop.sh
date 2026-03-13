@@ -31,6 +31,11 @@ if [ ! -d ".git" ]; then
     echo "INFO: Git repository initialized."
 fi
 
+# Ensure credential paths are gitignored in the project
+for PATTERN in ".config/" ".claude/" ".gemini/" ".env"; do
+    grep -qxF "$PATTERN" .gitignore 2>/dev/null || echo "$PATTERN" >> .gitignore
+done
+
 # Validate git remote for pushing — create private repo if none exists
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 if [ -z "$GIT_REMOTE" ]; then
