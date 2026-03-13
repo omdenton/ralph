@@ -81,8 +81,8 @@ check_contains() {
 
 check_contains "loop.sh sets gemini --yolo"                    'AI_CMD="gemini --yolo"'
 check_contains "loop.sh sets claude --dangerously-skip-permissions" 'AI_CMD="claude --dangerously-skip-permissions"'
-check_contains "loop.sh uses \$AI_CMD for plan step"           '\$AI_CMD < /app/agent/PROMPT_plan.md'
-check_contains "loop.sh uses \$AI_CMD for build step"          '\$AI_CMD < /app/agent/PROMPT_build.md'
+check_contains "loop.sh uses \$AI_CMD -p for plan step"        '\$AI_CMD -p "\$PLAN_PROMPT"'
+check_contains "loop.sh uses \$AI_CMD -p for build step"       '\$AI_CMD -p "\$BUILD_PROMPT"'
 check_contains "loop.sh checks for --gemini flag"              '"$arg" = "--gemini"'
 
 # ---------------------------------------------------------------------------

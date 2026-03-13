@@ -9,6 +9,7 @@ for arg in "$@"; do
 done
 
 # Set AI command
+# Both CLIs use -p for non-interactive mode with visible output
 if [ "$USE_GEMINI" = true ]; then
     AI_CMD="gemini --yolo"
     echo "Using Gemini CLI"
@@ -152,7 +153,8 @@ while true; do
     echo "========================================="
 
     # Execute the AI in planning mode and capture output
-    if ! $AI_CMD < /app/agent/PROMPT_plan.md 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
+    PLAN_PROMPT=$(cat /app/agent/PROMPT_plan.md)
+    if ! $AI_CMD -p "$PLAN_PROMPT" 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
         echo "ERROR: AI (Planning) failed. Sleeping longer before retry."
         sleep 300 # Longer sleep on error
         rm -f "$TEMP_OUTPUT_FILE" # Clean up temp file
@@ -165,7 +167,8 @@ while true; do
     echo "========================================="
 
     # Execute the AI in build mode and capture output
-    if ! $AI_CMD < /app/agent/PROMPT_build.md 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
+    BUILD_PROMPT=$(cat /app/agent/PROMPT_build.md)
+    if ! $AI_CMD -p "$BUILD_PROMPT" 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
         echo "ERROR: AI (Build) failed. Sleeping longer before retry."
         sleep 300 # Longer sleep on error
         rm -f "$TEMP_OUTPUT_FILE" # Clean up temp file
