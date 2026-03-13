@@ -86,6 +86,55 @@ check_contains "loop.sh uses \$AI_CMD for build step"          '\$AI_CMD < /app/
 check_contains "loop.sh checks for --gemini flag"              '"$arg" = "--gemini"'
 
 # ---------------------------------------------------------------------------
+# Structural checks: new features (git init, push, auth validation)
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== New feature structural checks ==="
+
+check_contains "loop.sh inits git repo if missing"                'git init'
+check_contains "loop.sh checks for .git directory"                '! -d ".git"'
+check_contains "loop.sh checks git remote for push"               'git remote get-url origin'
+check_contains "loop.sh has PUSH_ENABLED flag"                    'PUSH_ENABLED='
+check_contains "loop.sh pushes after commit"                      'git push origin'
+check_contains "loop.sh validates Claude auth"                    'CLAUDE_CODE_OAUTH_TOKEN'
+check_contains "loop.sh validates Gemini auth"                    'GEMINI_API_KEY'
+check_contains "loop.sh checks .claude.json for auth"             '/home/ralph/.claude.json'
+check_contains "loop.sh checks gemini oauth creds"                'oauth_creds.json'
+
+# ---------------------------------------------------------------------------
+# Functional test: git init in temp directory
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Git init functional test ==="
+
+TMPDIR_TEST=$(mktemp -d)
+(
+    cd "$TMPDIR_TEST"
+    # Simulate the git init block from loop.sh
+    if [ ! -d ".git" ]; then
+        git init >/dev/null 2>&1
+        git config user.name "Ralph"
+        git config user.email "ralph@localhost"
+        git add -A
+        git commit -m "chore: initial commit by ralph" --allow-empty >/dev/null 2>&1
+    fi
+    if [ -d ".git" ] && git rev-parse HEAD >/dev/null 2>&1; then
+        echo "PASS"
+    else
+        echo "FAIL"
+    fi
+)
+INIT_RESULT=$?
+if [ -d "$TMPDIR_TEST/.git" ]; then
+    echo "PASS: git init creates repo in empty directory"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: git init did not create repo"
+    FAIL=$((FAIL + 1))
+fi
+rm -rf "$TMPDIR_TEST"
+
+# ---------------------------------------------------------------------------
 # Integration test: is gemini binary available?
 # ---------------------------------------------------------------------------
 echo ""

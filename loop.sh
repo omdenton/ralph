@@ -17,6 +17,68 @@ else
     echo "Using Claude Code"
 fi
 
+# Ensure git repo exists
+if [ ! -d ".git" ]; then
+    echo "INFO: No git repository found in $(pwd). Initializing..."
+    git init
+    # Configure git user if not set
+    if [ -z "$(git config user.name)" ]; then
+        git config user.name "Ralph"
+        git config user.email "ralph@localhost"
+    fi
+    git add -A
+    git commit -m "chore: initial commit by ralph" --allow-empty
+    echo "INFO: Git repository initialized."
+fi
+
+# Validate git remote for pushing — create private repo if none exists
+GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+if [ -z "$GIT_REMOTE" ]; then
+    if command -v gh &>/dev/null && gh auth status &>/dev/null; then
+        REPO_NAME=$(basename "$(pwd)")
+        echo "INFO: No remote found. Creating private GitHub repo '$REPO_NAME'..."
+        if gh repo create "$REPO_NAME" --private --source=. --push 2>&1; then
+            echo "INFO: Private repo created and pushed."
+            GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+        else
+            echo "WARNING: Failed to create GitHub repo. Commits will stay local."
+        fi
+    else
+        echo "WARNING: No git remote 'origin' configured and gh CLI not available. Commits will stay local (no push)."
+    fi
+fi
+
+if [ -z "$GIT_REMOTE" ]; then
+    PUSH_ENABLED=false
+else
+    echo "INFO: Git remote found: $GIT_REMOTE"
+    # Test push access
+    if git ls-remote origin HEAD &>/dev/null; then
+        PUSH_ENABLED=true
+        echo "INFO: Push enabled — will push after each task."
+    else
+        echo "WARNING: Cannot reach remote. Commits will stay local (no push)."
+        PUSH_ENABLED=false
+    fi
+fi
+
+# Validate authentication
+if [ "$USE_GEMINI" = true ]; then
+    if [ -z "$GEMINI_API_KEY" ] && [ ! -f "/home/ralph/.gemini/oauth_creds.json" ]; then
+        echo "ERROR: Gemini authentication not configured."
+        echo "  Set GEMINI_API_KEY in .env or run 'gemini auth' first."
+        echo "  Get a key from: https://aistudio.google.com/apikey"
+        exit 1
+    fi
+else
+    if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ] && [ ! -f "/home/ralph/.claude.json" ]; then
+        echo "ERROR: Claude authentication not configured."
+        echo "  Option 1: Run 'claude setup-token' and add token to .env"
+        echo "  Option 2: Run 'claude login' to authenticate interactively"
+        exit 1
+    fi
+fi
+
 # Ensure AGENTS.md and IMPLEMENTATION_PLAN.md exist
 touch AGENTS.md
 touch IMPLEMENTATION_PLAN.md
@@ -84,6 +146,16 @@ while true; do
     if [ "$git_hash_before" != "$git_hash_after" ]; then
         stuck_count=0
         echo "INFO: Files changed (commit detected). Resetting stuck counter."
+        # Push if remote is available
+        if [ "$PUSH_ENABLED" = true ]; then
+            BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+            echo "INFO: Pushing to origin/$BRANCH..."
+            if git push origin "$BRANCH" 2>&1; then
+                echo "INFO: Push successful."
+            else
+                echo "WARNING: Push failed. Continuing loop — commits are saved locally."
+            fi
+        fi
     else
         stuck_count=$((stuck_count + 1))
         echo "WARNING: No file changes for iteration $stuck_count of $STUCK_THRESHOLD."
