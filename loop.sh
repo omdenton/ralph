@@ -79,7 +79,7 @@ done
 GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
 if [ -z "$GIT_REMOTE" ]; then
     if command -v gh &>/dev/null && gh auth status &>/dev/null; then
-        REPO_NAME=$(basename "$(pwd)")
+        REPO_NAME="${RALPH_REPO_NAME:-$(basename "$(pwd)")}"
         echo "INFO: No remote found. Creating private GitHub repo '$REPO_NAME'..."
         if gh repo create "$REPO_NAME" --private --source=. --push 2>&1; then
             echo "INFO: Private repo created and pushed."

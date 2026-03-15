@@ -123,16 +123,25 @@ Run these from the `agent/` directory:
 
 | Command | Description |
 |---------|-------------|
+| `make shop` | Build, start the loop + visualiser, open browser. Ctrl+C stops everything |
 | `make start` | Build (if needed), start the container, and run the loop with Claude |
 | `make start-gemini` | Build (if needed), start the container, and run the loop with Gemini |
 | `make loop` | Same as `make start` |
 | `make loop-gemini` | Same as `make start-gemini` |
+| `make logs` | Follow Ralph's container logs |
+| `make stop` | Stop all containers |
 | `make build` | Build the container image without starting |
 | `make clean` | Stop and remove the container image |
 
 Press `Ctrl+C` to stop the loop at any time. Progress is saved in the `project/` directory - just re-run to continue.
 
 The loop will automatically stop if it detects the same output 3 times in a row (stuck loop protection).
+
+### Visualiser
+
+`make shop` runs both the Ralph Loop and a pixel-art office visualiser in a single container. The loop output is tailed by a Node.js server that broadcasts state changes to the browser via WebSocket. Open `http://localhost:8080` (or `SHOP_PORT` if configured) to watch Ralph work.
+
+The visualiser code lives in `agent/shop/src/` and is self-contained — it doesn't depend on anything in `project/`.
 
 
 

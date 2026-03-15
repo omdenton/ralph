@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     htop \
     vim \
     sudo \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -42,6 +43,11 @@ RUN userdel -r ubuntu 2>/dev/null || true && \
     echo "ralph ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER ralph
 WORKDIR /home/ralph
+
+# Pre-trust GitHub SSH host key to avoid interactive prompt
+RUN mkdir -p /home/ralph/.ssh && \
+    ssh-keyscan -t ed25519,rsa github.com >> /home/ralph/.ssh/known_hosts 2>/dev/null && \
+    chmod 700 /home/ralph/.ssh && chmod 600 /home/ralph/.ssh/known_hosts
 
 # Set up Python virtual environment
 RUN python3 -m venv /home/ralph/.venv

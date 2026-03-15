@@ -1,0 +1,15 @@
+{
+  "name": "ralph-shop",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "ws": "^8.0.0"
+  },
+  "devDependencies": {
+    "canvas": "^3.0.0"
+  }
+}

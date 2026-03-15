@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ralph Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: 'Press Start 2P', monospace;
+      color: #e0e0e0;
+    }
+
+    h1 {
+      font-size: 14px;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+      color: #f5d000;
+      text-shadow: 2px 2px #5a3a00;
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 640px;
+      image-rendering: pixelated;
+      border: 2px solid #3a3a5a;
+      display: block;
+    }
+
+    #hud {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 8px;
+    }
+
+    #connection-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #c00;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #connection-dot.connected { background: #0c0; }
+
+    #state-badge {
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: #555;
+      color: #fff;
+      text-transform: uppercase;
+      font-size: 7px;
+      letter-spacing: 1px;
+      min-width: 80px;
+      text-align: center;
+    }
+    #state-badge.state-planning  { background: #1a5db5; }
+    #state-badge.state-building  { background: #2a7a2a; }
+    #state-badge.state-sleeping  { background: #c07a00; }
+    #state-badge.state-complete  { background: #b08a00; }
+    #state-badge.state-error     { background: #a02020; }
+    #state-badge.state-starting,
+    #state-badge.state-idle      { background: #555; }
+
+    #last-log {
+      color: #8888aa;
+      font-size: 6px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ralph Shop</h1>
+  <canvas id="game" width="320" height="180"></canvas>
+  <div id="hud">
+    <div id="connection-dot" title="Connection status"></div>
+    <div id="state-badge">idle</div>
+    <div id="last-log">Waiting for logs…</div>
+  </div>
+
+  <script src="game.js"></script>
+  <script>
+    // -------------------------------------------------------------------------
+    // HUD updater
+    // -------------------------------------------------------------------------
+    var dot   = document.getElementById('connection-dot');
+    var badge = document.getElementById('state-badge');
+    var logEl = document.getElementById('last-log');
+
+    var BADGE_STATES = ['planning','building','sleeping','complete','error','starting','idle'];
+
+    function updateHUD(data) {
+      // state badge
+      var s = data.state || 'idle';
+      badge.textContent = s;
+      BADGE_STATES.forEach(function(st) { badge.classList.remove('state-' + st); });
+      badge.classList.add('state-' + s);
+
+      // last log line
+      if (data.lastLog) {
+        logEl.textContent = data.lastLog;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // requestAnimationFrame game loop
+    // -------------------------------------------------------------------------
+    var canvas = document.getElementById('game');
+    var ctx    = canvas.getContext('2d');
+
+    function loop() {
+      Game.gameLoop(ctx);
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // -------------------------------------------------------------------------
+    // WebSocket client with exponential-backoff reconnect
+    // -------------------------------------------------------------------------
+    var ws = null;
+    var reconnectDelay = 1000;
+    var MAX_DELAY = 30000;
+
+    function connect() {
+      ws = new WebSocket('ws://' + location.host);
+
+      ws.addEventListener('open', function() {
+        dot.classList.add('connected');
+        reconnectDelay = 1000;
+      });
+
+      ws.addEventListener('message', function(evt) {
+        var data;
+        try { data = JSON.parse(evt.data); } catch(e) { return; }
+        if (data && data.state) {
+          Game.updateState(data.state);
+          updateHUD(data);
+        }
+      });
+
+      ws.addEventListener('close', function() {
+        dot.classList.remove('connected');
+        setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
+      });
+
+      ws.addEventListener('error', function() {
+        ws.close();
+      });
+    }
+
+    connect();
+  </script>
+</body>
+</html>

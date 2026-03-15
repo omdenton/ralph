@@ -10,6 +10,8 @@ services:
       - ~/.claude.json:/home/ralph/.claude.json
       # Mount GitHub CLI credentials (for private repo creation + push)
       - ~/.config/gh:/home/ralph/.config/gh
+      # Mount SSH keys (for git SSH access to GitHub)
+      - ~/.ssh:/home/ralph/.ssh:ro
       # Mount Gemini CLI credentials (for OAuth auth)
       - ~/.gemini:/home/ralph/.gemini
     environment:
@@ -17,12 +19,19 @@ services:
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
       # Gemini API key from https://aistudio.google.com/apikey
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # Override the GitHub repo name (defaults to working directory name)
+      - RALPH_REPO_NAME=${RALPH_REPO_NAME:-ralph-shop}
+      # Shop visualiser port
+      - SHOP_PORT=${SHOP_PORT:-8080}
+    ports:
+      - "${SHOP_PORT:-8080}:${SHOP_PORT:-8080}"
     # Resource limits - adjust as needed
     deploy:
       resources:
         limits:
           cpus: '4'
           memory: 8G
+    command: /app/agent/start.sh
     # Keep container running for interactive use
     stdin_open: true
     tty: true
