@@ -176,11 +176,24 @@ while true; do
     fi
     rm -f "$TEMP_OUTPUT_FILE" # Clean up temp file after capturing
 
-    # Check for completion status
+    echo "========================================="
+    echo "Ralph entering Review Mode... ($(date))"
+    echo "========================================="
+
+    REVIEW_PROMPT=$(cat /app/agent/PROMPT_review.md)
+    if ! $AI_CMD -p "$REVIEW_PROMPT" 2>&1 | tee "$TEMP_OUTPUT_FILE"; then
+        echo "ERROR: AI (Review) failed. Sleeping longer before retry."
+        sleep 300
+        rm -f "$TEMP_OUTPUT_FILE"
+        continue
+    fi
+    rm -f "$TEMP_OUTPUT_FILE"
+
+    # Check for completion status — only Review can set this
     if grep -q "^Status: COMPLETE" IMPLEMENTATION_PLAN.md 2>/dev/null; then
         echo "========================================="
         echo "✓ Project marked as COMPLETE in IMPLEMENTATION_PLAN.md"
-        echo "All tasks finished. Exiting loop successfully."
+        echo "Review passed. All tasks finished. Exiting loop successfully."
         echo "========================================="
         exit 0
     fi

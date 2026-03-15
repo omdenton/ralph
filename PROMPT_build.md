@@ -51,7 +51,7 @@ Update `IMPLEMENTATION_PLAN.md`:
 - Mark the completed task as done
 - Add any new tasks discovered during implementation
 - Note any bugs found (even if unrelated to current task)
-- **Update Status Line:** Set to `Status: COMPLETE` if no tasks remain, otherwise `Status: IN_PROGRESS`
+- **Keep Status as `Status: IN_PROGRESS`** — only Review mode can set COMPLETE
 
 ## 6. Update Operational Notes
 

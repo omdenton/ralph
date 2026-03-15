@@ -83,6 +83,8 @@ check_contains "loop.sh sets gemini --yolo"                    'AI_CMD="gemini -
 check_contains "loop.sh sets claude --dangerously-skip-permissions" 'AI_CMD="claude --dangerously-skip-permissions"'
 check_contains "loop.sh uses \$AI_CMD -p for plan step"        '\$AI_CMD -p "\$PLAN_PROMPT"'
 check_contains "loop.sh uses \$AI_CMD -p for build step"       '\$AI_CMD -p "\$BUILD_PROMPT"'
+check_contains "loop.sh uses \$AI_CMD -p for review step"      '\$AI_CMD -p "\$REVIEW_PROMPT"'
+check_contains "loop.sh loads PROMPT_review.md"                 'PROMPT_review.md'
 check_contains "loop.sh checks for --gemini flag"              '"$arg" = "--gemini"'
 
 # ---------------------------------------------------------------------------
@@ -100,6 +102,51 @@ check_contains "loop.sh validates Claude auth"                    'CLAUDE_CODE_O
 check_contains "loop.sh validates Gemini auth"                    'GEMINI_API_KEY'
 check_contains "loop.sh checks .claude.json for auth"             '/home/ralph/.claude.json'
 check_contains "loop.sh checks gemini oauth creds"                'oauth_creds.json'
+
+# ---------------------------------------------------------------------------
+# Review phase structural checks
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Review phase checks ==="
+
+check_contains "loop.sh enters Review Mode"                     'Ralph entering Review Mode'
+check_contains "loop.sh reports review passed on completion"     'Review passed'
+
+# PROMPT_review.md exists
+if [ -f "$SCRIPT_DIR/PROMPT_review.md" ]; then
+    echo "PASS: PROMPT_review.md exists"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: PROMPT_review.md not found"
+    FAIL=$((FAIL + 1))
+fi
+
+# Only review can set COMPLETE — build prompt should NOT instruct setting Status: COMPLETE
+if grep -q "Set.*Status:.*COMPLETE\|set.*Status:.*COMPLETE" "$SCRIPT_DIR/PROMPT_build.md" 2>/dev/null; then
+    echo "FAIL: PROMPT_build.md should not instruct setting Status: COMPLETE (only review can)"
+    FAIL=$((FAIL + 1))
+else
+    echo "PASS: PROMPT_build.md does not instruct setting COMPLETE"
+    PASS=$((PASS + 1))
+fi
+
+# Review prompt CAN set COMPLETE
+if grep -q "Status: COMPLETE" "$SCRIPT_DIR/PROMPT_review.md" 2>/dev/null; then
+    echo "PASS: PROMPT_review.md can set Status: COMPLETE"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: PROMPT_review.md should be able to set Status: COMPLETE"
+    FAIL=$((FAIL + 1))
+fi
+
+# Review prompt emphasizes no mocking
+if grep -qi "mock" "$SCRIPT_DIR/PROMPT_review.md" 2>/dev/null; then
+    echo "PASS: PROMPT_review.md addresses mocking policy"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: PROMPT_review.md should mention mocking policy"
+    FAIL=$((FAIL + 1))
+fi
 
 # ---------------------------------------------------------------------------
 # Functional test: git init in temp directory

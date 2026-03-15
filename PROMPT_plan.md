@@ -31,8 +31,7 @@ Compare the requirements against the existing implementation. Identify:
 Update `IMPLEMENTATION_PLAN.md` with:
 
 **Status Line (REQUIRED at top of file):**
-- `Status: COMPLETE` - if gap analysis found no missing features, no bugs, and no tasks remain
-- `Status: IN_PROGRESS` - if there are tasks to implement
+- `Status: IN_PROGRESS` - always set this in Planning mode. Only Review mode can set COMPLETE.
 
 **Task List:**
 For each task include:

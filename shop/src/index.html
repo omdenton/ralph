@@ -15,33 +15,45 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
+      min-height: 100vh;
       font-family: 'Press Start 2P', monospace;
       color: #e0e0e0;
+      padding: 16px;
     }
 
     h1 {
-      font-size: 14px;
+      font-size: 16px;
       letter-spacing: 2px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
       color: #f5d000;
       text-shadow: 2px 2px #5a3a00;
     }
 
-    canvas {
+    #main-layout {
+      display: flex;
+      gap: 16px;
+      max-width: 1000px;
       width: 100%;
-      max-width: 640px;
+    }
+
+    #canvas-wrap {
+      flex-shrink: 0;
+    }
+
+    canvas {
+      width: 640px;
       image-rendering: pixelated;
-      border: 2px solid #3a3a5a;
+      border: 3px solid #3a3a5a;
+      border-radius: 4px;
       display: block;
+      background: #2a3a4e;
     }
 
     #hud {
-      margin-top: 12px;
+      margin-top: 10px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       font-size: 8px;
     }
 
@@ -56,14 +68,14 @@
     #connection-dot.connected { background: #0c0; }
 
     #state-badge {
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 3px;
       background: #555;
       color: #fff;
       text-transform: uppercase;
-      font-size: 7px;
+      font-size: 8px;
       letter-spacing: 1px;
-      min-width: 80px;
+      min-width: 90px;
       text-align: center;
     }
     #state-badge.state-planning  { background: #1a5db5; }
@@ -77,49 +89,176 @@
     #last-log {
       color: #8888aa;
       font-size: 6px;
-      max-width: 300px;
+      max-width: 400px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    /* --- Task sidebar --- */
+    #task-panel {
+      flex: 1;
+      min-width: 240px;
+      max-width: 340px;
+      background: #1e1e36;
+      border: 2px solid #3a3a5a;
+      border-radius: 4px;
+      padding: 12px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    #task-panel h2 {
+      font-size: 9px;
+      color: #f5d000;
+      text-shadow: 1px 1px #5a3a00;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    #task-list {
+      list-style: none;
+    }
+
+    #task-list li {
+      font-size: 7px;
+      line-height: 1.6;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      border-radius: 3px;
+      border-left: 3px solid #555;
+      background: #252540;
+      word-break: break-word;
+    }
+
+    .task-criteria {
+      margin-top: 4px;
+      padding-left: 8px;
+      font-size: 6px;
+      color: #8888aa;
+      line-height: 1.8;
+    }
+    .task-criteria li {
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: none;
+      list-style: disc;
+    }
+    li.task-done .task-criteria { color: #6a6a7a; }
+
+    #task-list li.task-done {
+      border-left-color: #2a7a2a;
+      color: #8a8a8a;
+    }
+    #task-list li.task-done .task-status {
+      color: #4aba4a;
+    }
+
+    #task-list li.task-in-progress {
+      border-left-color: #1a5db5;
+      background: #2a2a4e;
+    }
+    #task-list li.task-in-progress .task-status {
+      color: #5a9af0;
+    }
+
+    #task-list li.task-pending {
+      border-left-color: #555;
+      color: #7a7a9a;
+    }
+    #task-list li.task-pending .task-status {
+      color: #7a7a9a;
+    }
+
+    .task-status {
+      font-size: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: block;
+      margin-top: 3px;
+    }
+
+    #task-empty {
+      font-size: 7px;
+      color: #5a5a7a;
+      font-style: italic;
     }
   </style>
 </head>
 <body>
   <h1>Ralph Shop</h1>
-  <canvas id="game" width="320" height="180"></canvas>
-  <div id="hud">
-    <div id="connection-dot" title="Connection status"></div>
-    <div id="state-badge">idle</div>
-    <div id="last-log">Waiting for logs…</div>
+  <div id="main-layout">
+    <div id="canvas-wrap">
+      <canvas id="game" width="640" height="360"></canvas>
+      <div id="hud">
+        <div id="connection-dot" title="Connection status"></div>
+        <div id="state-badge">idle</div>
+        <div id="last-log">Waiting for logs...</div>
+      </div>
+    </div>
+    <div id="task-panel">
+      <h2>Tasks</h2>
+      <ul id="task-list">
+        <li id="task-empty">Waiting for plan...</li>
+      </ul>
+    </div>
   </div>
 
   <script src="game.js"></script>
   <script>
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     // HUD updater
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     var dot   = document.getElementById('connection-dot');
     var badge = document.getElementById('state-badge');
     var logEl = document.getElementById('last-log');
+    var taskList = document.getElementById('task-list');
+    var taskEmpty = document.getElementById('task-empty');
 
     var BADGE_STATES = ['planning','building','sleeping','complete','error','starting','idle'];
 
     function updateHUD(data) {
-      // state badge
       var s = data.state || 'idle';
       badge.textContent = s;
       BADGE_STATES.forEach(function(st) { badge.classList.remove('state-' + st); });
       badge.classList.add('state-' + s);
 
-      // last log line
       if (data.lastLog) {
         logEl.textContent = data.lastLog;
       }
+
+      // Update task list
+      if (data.tasks && data.tasks.length > 0) {
+        taskList.innerHTML = '';
+        data.tasks.forEach(function(task) {
+          var li = document.createElement('li');
+          var statusClass = 'task-' + task.status.replace('_', '-');
+          li.className = statusClass;
+
+          var statusLabel = task.status === 'done' ? 'Done'
+                         : task.status === 'in_progress' ? 'In Progress'
+                         : 'Pending';
+          var statusIcon = task.status === 'done' ? '\u2713 '
+                         : task.status === 'in_progress' ? '\u25B6 '
+                         : '\u25CB ';
+
+          li.innerHTML = '<span>' + escapeHtml(task.desc) + '</span>'
+                       + '<span class="task-status">' + statusIcon + statusLabel + '</span>';
+          taskList.appendChild(li);
+        });
+      }
     }
 
-    // -------------------------------------------------------------------------
+    function escapeHtml(s) {
+      var div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    // -----------------------------------------------------------------------
     // requestAnimationFrame game loop
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     var canvas = document.getElementById('game');
     var ctx    = canvas.getContext('2d');
 
@@ -129,9 +268,9 @@
     }
     requestAnimationFrame(loop);
 
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     // WebSocket client with exponential-backoff reconnect
-    // -------------------------------------------------------------------------
+    // -----------------------------------------------------------------------
     var ws = null;
     var reconnectDelay = 1000;
     var MAX_DELAY = 30000;

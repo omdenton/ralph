@@ -13,7 +13,7 @@ const http = require('http');
 const { WebSocket } = require('ws');
 const { createCanvas } = require('canvas');
 
-const { parseLogLine, startServer } = require('./server.js');
+const { parseLogLine, parseTasks, startServer } = require('./server.js');
 const Game = require('./game.js');
 
 // ---------------------------------------------------------------------------
@@ -39,6 +39,46 @@ describe('parseLogLine', () => {
       assert.equal(parseLogLine(input), expected);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// 1b. Task parsing (unit)
+// ---------------------------------------------------------------------------
+
+describe('parseTasks', () => {
+  test('parses DONE, IN PROGRESS, and pending tasks with criteria', () => {
+    const md = [
+      '# Plan',
+      '### Task 1 — Create fizzbuzz.js ✅ DONE',
+      '**Acceptance Criteria:**',
+      '- fizzbuzz(3) returns "Fizz"',
+      '- fizzbuzz(15) returns "FizzBuzz"',
+      '',
+      '### Task 2 — Create main.js 🔄 IN PROGRESS',
+      '### Task 3 — Create test.js',
+    ].join('\n');
+    const tasks = parseTasks(md);
+    assert.equal(tasks.length, 3);
+    assert.equal(tasks[0].status, 'done');
+    assert.equal(tasks[0].desc, 'Create fizzbuzz.js');
+    assert.equal(tasks[0].criteria.length, 2);
+    assert.equal(tasks[0].criteria[0], 'fizzbuzz(3) returns "Fizz"');
+    assert.equal(tasks[1].status, 'in_progress');
+    assert.equal(tasks[1].desc, 'Create main.js');
+    assert.equal(tasks[2].status, 'pending');
+    assert.equal(tasks[2].desc, 'Create test.js');
+  });
+
+  test('parses bracket-style status markers', () => {
+    const md = '### Task 1 — Build widget [DONE]';
+    const tasks = parseTasks(md);
+    assert.equal(tasks.length, 1);
+    assert.equal(tasks[0].status, 'done');
+  });
+
+  test('returns empty array for no tasks', () => {
+    assert.deepEqual(parseTasks('# Nothing here'), []);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -68,6 +108,7 @@ describe('state object shape', () => {
     assert.equal(typeof s.timestamp, 'string', 'timestamp should be string');
     assert.ok(!isNaN(Date.parse(s.timestamp)), 'timestamp should be ISO 8601');
     assert.equal(typeof s.containerRunning, 'boolean', 'containerRunning should be boolean');
+    assert.ok(Array.isArray(s.tasks), 'tasks should be an array');
   });
 });
 
@@ -149,13 +190,13 @@ describe('WebSocket', () => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}`);
     ws.on('message', (raw) => {
       const data = JSON.parse(raw.toString());
-      // Check all 4 fields
       assert.equal(typeof data.state, 'string');
       assert.ok(VALID_STATES.has(data.state), `state "${data.state}" should be valid`);
       assert.equal(typeof data.lastLog, 'string');
       assert.equal(typeof data.timestamp, 'string');
       assert.ok(!isNaN(Date.parse(data.timestamp)), 'timestamp should be ISO 8601');
       assert.equal(typeof data.containerRunning, 'boolean');
+      assert.ok(Array.isArray(data.tasks), 'tasks should be an array');
       ws.close();
       done();
     });
@@ -181,6 +222,7 @@ describe('index.html smoke test', () => {
   test('contains state-badge or hud', () => {
     assert.ok(html.includes('state-badge') || html.includes('hud'));
   });
+  test('contains task-list', () => assert.ok(html.includes('task-list')));
 });
 
 // ---------------------------------------------------------------------------
@@ -188,107 +230,235 @@ describe('index.html smoke test', () => {
 // ---------------------------------------------------------------------------
 
 describe('canvas rendering', () => {
-  function makeCtx(w = 320, h = 180) {
-    const canvas = createCanvas(w, h);
+  function makeCtx(w, h) {
+    w = w || 640;
+    h = h || 360;
+    var canvas = createCanvas(w, h);
     return canvas.getContext('2d');
   }
 
   function getPixel(ctx, x, y) {
-    const d = ctx.getImageData(x, y, 1, 1).data;
+    var d = ctx.getImageData(x, y, 1, 1).data;
     return { r: d[0], g: d[1], b: d[2], a: d[3] };
   }
 
   function isBlank(ctx, x, y) {
-    const p = getPixel(ctx, x, y);
+    var p = getPixel(ctx, x, y);
     return p.a === 0;
   }
 
-  function hasAnyNonBlank(ctx, tx, ty) {
-    const x = tx * 16, y = ty * 16;
-    for (let dy = 0; dy < 16; dy++) {
-      for (let dx = 0; dx < 16; dx++) {
-        if (!isBlank(ctx, x + dx, y + dy)) return true;
+  function hasAnyNonBlankRegion(ctx, sx, sy, w, h) {
+    for (var dy = 0; dy < h; dy++) {
+      for (var dx = 0; dx < w; dx++) {
+        if (!isBlank(ctx, sx + dx, sy + dy)) return true;
       }
     }
     return false;
   }
 
   test('drawOffice: not all pixels same colour', () => {
-    const ctx = makeCtx();
+    var ctx = makeCtx();
     Game.drawOffice(ctx);
-    const p1 = getPixel(ctx, 0, 0);
-    const p2 = getPixel(ctx, 160, 120);
-    // Floor and ceiling strip are different colours
-    const same = (p1.r === p2.r && p1.g === p2.g && p1.b === p2.b);
+    var p1 = getPixel(ctx, 0, 0);
+    var p2 = getPixel(ctx, 320, 120);
+    var same = (p1.r === p2.r && p1.g === p2.g && p1.b === p2.b);
     assert.ok(!same, 'office should have multiple colours');
   });
 
-  test('floor pixel at (160, 120) is beige/tan', () => {
-    const ctx = makeCtx();
+  test('floor tiles are tan/beige coloured (scan floor region)', () => {
+    var ctx = makeCtx();
     Game.drawOffice(ctx);
-    const p = getPixel(ctx, 160, 120);
-    assert.ok(p.r > 180, `R=${p.r} should be > 180`);
-    assert.ok(p.g > 150, `G=${p.g} should be > 150`);
-    assert.ok(p.b > 100, `B=${p.b} should be > 100`);
+    var found = false;
+    outer: for (var y = 80; y < 220; y++) {
+      for (var x = 200; x < 480; x++) {
+        var p = getPixel(ctx, x, y);
+        if (p.r > 180 && p.g > 140 && p.b > 100) { found = true; break outer; }
+      }
+    }
+    assert.ok(found, 'floor region should contain tan/beige pixels');
   });
 
-  test('wall pixel at (50, 24) is blue-grey: R < 150, B > R', () => {
-    const ctx = makeCtx();
+  test('north wall has blue-grey pixels (scan wall region)', () => {
+    var ctx = makeCtx();
     Game.drawOffice(ctx);
-    const p = getPixel(ctx, 50, 24);
-    assert.ok(p.r < 150, `R=${p.r} should be < 150`);
-    assert.ok(p.b > p.r, `B=${p.b} should be > R=${p.r}`);
+    var found = false;
+    outer: for (var y = 0; y < 80; y++) {
+      for (var x = 300; x < 500; x++) {
+        var p = getPixel(ctx, x, y);
+        if (p.a > 0 && p.r < 150 && p.b > p.r) { found = true; break outer; }
+      }
+    }
+    assert.ok(found, 'north wall region should have blue-grey pixels');
   });
 
-  test('drawWhiteboard(ctx, 2, 2) produces non-blank pixels', () => {
-    const ctx = makeCtx();
-    Game.drawWhiteboard(ctx, 2, 2);
-    assert.ok(hasAnyNonBlank(ctx, 2, 2), 'whiteboard tile should have non-blank pixels');
+  test('drawWhiteboard(ctx, 1, 1) produces non-blank pixels', () => {
+    var ctx = makeCtx();
+    Game.drawWhiteboard(ctx, 1, 1);
+    assert.ok(hasAnyNonBlankRegion(ctx, 280, 20, 80, 60), 'whiteboard should have non-blank pixels');
   });
 
-  test('drawWorkbench(ctx, 13, 5) produces non-blank pixels', () => {
-    const ctx = makeCtx();
-    Game.drawWorkbench(ctx, 13, 5);
-    assert.ok(hasAnyNonBlank(ctx, 13, 5), 'workbench tile should have non-blank pixels');
+  test('drawWorkbench(ctx, 8, 5) produces non-blank pixels', () => {
+    var ctx = makeCtx();
+    Game.drawWorkbench(ctx, 8, 5);
+    assert.ok(hasAnyNonBlankRegion(ctx, 300, 80, 120, 80), 'workbench should have non-blank pixels');
   });
 
-  test('drawCoffeeMachine(ctx, 2, 8) produces non-blank pixels', () => {
-    const ctx = makeCtx();
-    Game.drawCoffeeMachine(ctx, 2, 8);
-    assert.ok(hasAnyNonBlank(ctx, 2, 8), 'coffee machine tile should have non-blank pixels');
+  test('drawCoffeeMachine(ctx, 1, 7) produces non-blank pixels', () => {
+    var ctx = makeCtx();
+    Game.drawCoffeeMachine(ctx, 1, 7);
+    assert.ok(hasAnyNonBlankRegion(ctx, 180, 60, 80, 60), 'coffee machine should have non-blank pixels');
   });
 
   test('drawRalph produces non-blank pixels', () => {
-    const ctx = makeCtx();
-    Game.drawRalph(ctx, 100, 100, 0);
-    // Body at (100, 106) — blue overalls
-    const p = getPixel(ctx, 104, 106);
+    var ctx = makeCtx();
+    Game.drawRalph(ctx, 200, 200, 0);
+    var p = getPixel(ctx, 207, 215);
     assert.ok(p.a > 0, 'ralph body pixel should be non-blank');
   });
 
-  test('drawRalph hat at (100, 97) is yellow: R > 200, G > 200, B < 100', () => {
-    const ctx = makeCtx();
-    Game.drawRalph(ctx, 100, 100, 0);
-    // Hat is drawn at (x, y-3) = (100, 97), width 8, height 3
-    const p = getPixel(ctx, 100, 97);
-    assert.ok(p.r > 200, `R=${p.r} should be > 200 (yellow)`);
-    assert.ok(p.g > 200, `G=${p.g} should be > 200 (yellow)`);
-    assert.ok(p.b < 100, `B=${p.b} should be < 100 (yellow)`);
+  test('drawRalph hat is yellow: R > 200, G > 180, B < 100', () => {
+    var ctx = makeCtx();
+    Game.drawRalph(ctx, 200, 200, 0);
+    var p = getPixel(ctx, 206, 203);
+    assert.ok(p.r > 200, 'R=' + p.r + ' should be > 200 (yellow)');
+    assert.ok(p.g > 180, 'G=' + p.g + ' should be > 180 (yellow)');
+    assert.ok(p.b < 100, 'B=' + p.b + ' should be < 100 (yellow)');
   });
 
   test('drawRalph animFrame 0 vs 1 produces different pixel data', () => {
-    const ctx0 = makeCtx();
-    Game.drawRalph(ctx0, 100, 100, 0);
-    const data0 = ctx0.getImageData(90, 100, 30, 30).data;
+    var ctx0 = makeCtx();
+    Game.drawRalph(ctx0, 200, 200, 0);
+    var data0 = ctx0.getImageData(190, 220, 40, 40).data;
 
-    const ctx1 = makeCtx();
-    Game.drawRalph(ctx1, 100, 100, 1);
-    const data1 = ctx1.getImageData(90, 100, 30, 30).data;
+    var ctx1 = makeCtx();
+    Game.drawRalph(ctx1, 200, 200, 1);
+    var data1 = ctx1.getImageData(190, 220, 40, 40).data;
 
-    let differs = false;
-    for (let i = 0; i < data0.length; i++) {
+    var differs = false;
+    for (var i = 0; i < data0.length; i++) {
       if (data0[i] !== data1[i]) { differs = true; break; }
     }
     assert.ok(differs, 'animFrame 0 and 1 should produce different pixel data (walk cycle)');
+  });
+
+  test('canvas is 640x360', () => {
+    assert.equal(Game.CANVAS_W, 640);
+    assert.equal(Game.CANVAS_H, 360);
+    assert.equal(Game.TILE_SIZE, 32);
+  });
+
+  test('floor has checkerboard pattern (two distinct tile shades)', () => {
+    var ctx = makeCtx();
+    Game.drawOffice(ctx);
+    // Tile(5,5) center at ~(320, 145), tile(6,5) at ~(336, 153)
+    // (5+5)%2=0 and (6+5)%2=1 → different shades
+    var p1 = getPixel(ctx, 324, 148);
+    var p2 = getPixel(ctx, 340, 156);
+    var same = (p1.r === p2.r && p1.g === p2.g && p1.b === p2.b);
+    assert.ok(!same, 'adjacent tiles should have different shades (checkerboard)');
+  });
+
+  test('whiteboard scrawl is on the board, not the wall', () => {
+    // Scrawl at (gx+0.3, gy=1) renders near (325, 83)
+    // If wrong (gy=0), it would be near (341, 75) — on the wall above
+    var ctx = makeCtx();
+    Game.drawWhiteboard(ctx, 1, 1);
+    // Check for green scrawl pixels (#4a8a5a) on the board surface
+    var foundOnBoard = false;
+    outer: for (var y = 50; y < 70; y++) {
+      for (var x = 320; x < 340; x++) {
+        var p = getPixel(ctx, x, y);
+        if (p.g > 100 && p.g > p.r && p.g > p.b && p.a > 0) {
+          foundOnBoard = true; break outer;
+        }
+      }
+    }
+    assert.ok(foundOnBoard, 'green scrawl pixels should be on the whiteboard surface');
+  });
+
+  test('whiteboard scrawl is NOT on the wall (gy=0 region)', () => {
+    var ctx = makeCtx();
+    Game.drawWhiteboard(ctx, 1, 1);
+    // The wrong region (gy=0) would be around (341, 45..48)
+    // There should be no green scrawl pixels in the wall-only zone
+    var foundOnWall = false;
+    for (var y = 38; y < 48; y++) {
+      for (var x = 338; x < 360; x++) {
+        var p = getPixel(ctx, x, y);
+        if (p.g > 100 && p.g > p.r && p.g > p.b && p.a > 0) {
+          foundOnWall = true; break;
+        }
+      }
+    }
+    assert.ok(!foundOnWall, 'no green scrawl pixels should appear in the wall-only zone');
+  });
+
+  test('bookshelf books render on the front (SW) face', () => {
+    var ctx = makeCtx();
+    Game.drawBookshelf(ctx, 9, 2);
+    // Front face at gy+0.8=2.8, books should appear near (422-446, 130-170)
+    var foundBook = false;
+    outer: for (var y = 125; y < 165; y++) {
+      for (var x = 418; x < 450; x++) {
+        var p = getPixel(ctx, x, y);
+        // Check for book colours: red (#b03020), blue (#2050b0), green (#20a040)
+        var isRed = (p.r > 150 && p.g < 80 && p.b < 80);
+        var isBlue = (p.r < 80 && p.g < 120 && p.b > 140);
+        var isGreen = (p.r < 80 && p.g > 130 && p.b < 100);
+        if (isRed || isBlue || isGreen) { foundBook = true; break outer; }
+      }
+    }
+    assert.ok(foundBook, 'book-coloured pixels should appear on the front face of bookshelf');
+  });
+
+  test('couch/bed renders with blue cushion at sleep location', () => {
+    var ctx = makeCtx();
+    Game.drawCoffeeMachine(ctx, 1, 7);
+    // Cushion is blue (#4a6a8a top face) — scan the couch region near (224, 115..155)
+    var foundCushion = false;
+    outer: for (var y = 110; y < 160; y++) {
+      for (var x = 210; x < 270; x++) {
+        var p = getPixel(ctx, x, y);
+        // Blue cushion: R<100, G in 80-130, B in 100-160
+        if (p.a > 0 && p.r < 100 && p.g > 70 && p.g < 140 && p.b > 90 && p.b < 170) {
+          foundCushion = true; break outer;
+        }
+      }
+    }
+    assert.ok(foundCushion, 'couch should have blue cushion pixels');
+  });
+
+  test('couch/bed has a pillow (light/white pixels)', () => {
+    var ctx = makeCtx();
+    Game.drawCoffeeMachine(ctx, 1, 7);
+    var foundPillow = false;
+    outer: for (var y = 105; y < 150; y++) {
+      for (var x = 210; x < 260; x++) {
+        var p = getPixel(ctx, x, y);
+        // Pillow is off-white (#d0d0c8): R>190, G>190, B>170
+        if (p.a > 0 && p.r > 190 && p.g > 190 && p.b > 170) {
+          foundPillow = true; break outer;
+        }
+      }
+    }
+    assert.ok(foundPillow, 'couch should have pillow (light/white pixels)');
+  });
+
+  test('drawRalph has eyes (dark pixels on face)', () => {
+    var ctx = makeCtx();
+    Game.drawRalph(ctx, 200, 200, 0);
+    // Eyes at (205,208) and (209,208) — 2x2 dark dots
+    var leftEye = getPixel(ctx, 205, 208);
+    var rightEye = getPixel(ctx, 209, 208);
+    assert.ok(leftEye.r < 50 && leftEye.g < 50 && leftEye.b < 50, 'left eye should be dark');
+    assert.ok(rightEye.r < 50 && rightEye.g < 50 && rightEye.b < 50, 'right eye should be dark');
+  });
+
+  test('drawRalph has boots (dark pixels below legs)', () => {
+    var ctx = makeCtx();
+    Game.drawRalph(ctx, 200, 200, 0);
+    // Boots at y+32 area
+    var boot = getPixel(ctx, 203, 232);
+    assert.ok(boot.a > 0 && boot.r < 60 && boot.g < 60 && boot.b < 60, 'boots should be dark');
   });
 });

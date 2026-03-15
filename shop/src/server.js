@@ -28,6 +28,45 @@ function parseLogLine(line) {
 }
 
 // ---------------------------------------------------------------------------
+// Plan file parser — extracts tasks from IMPLEMENTATION_PLAN.md
+// ---------------------------------------------------------------------------
+
+function parseTasks(content) {
+  const tasks = [];
+  const lines = content.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(/^###\s+Task\s+\d+\s*[—–\-]\s*(.+)$/);
+    if (match) {
+      let desc = match[1].trim();
+      let status = 'pending';
+      if (/\bDONE\b/i.test(desc) || /✅/.test(desc)) {
+        status = 'done';
+        desc = desc.replace(/\s*[\[(]?\s*(✅\s*)?DONE\s*[\])]?\s*$/i, '').trim();
+      } else if (/IN[\s_]*PROGRESS/i.test(desc) || /🔄/.test(desc)) {
+        status = 'in_progress';
+        desc = desc.replace(/\s*[\[(]?\s*(🔄\s*)?IN[\s_]*PROGRESS\s*[\])]?\s*$/i, '').trim();
+      }
+      // Extract acceptance criteria lines following this task heading
+      const criteria = [];
+      let inCriteria = false;
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/^###/.test(lines[j]) || /^---/.test(lines[j])) break;
+        if (/acceptance\s*criteria/i.test(lines[j])) { inCriteria = true; continue; }
+        if (inCriteria && /^\s*-\s+/.test(lines[j])) {
+          criteria.push(lines[j].replace(/^\s*-\s+/, '').trim());
+        }
+        // Stop collecting criteria if we hit another section header
+        if (inCriteria && /^\*\*\w/.test(lines[j]) && !/acceptance/i.test(lines[j])) {
+          inCriteria = false;
+        }
+      }
+      tasks.push({ desc, status, criteria });
+    }
+  }
+  return tasks;
+}
+
+// ---------------------------------------------------------------------------
 // Server factory — exported for testing (port 0 → OS-assigned)
 // ---------------------------------------------------------------------------
 
@@ -40,6 +79,7 @@ function startServer(port) {
     lastLog: '',
     timestamp: new Date().toISOString(),
     containerRunning: false,
+    tasks: [],
   };
 
   // ---- HTTP server -------------------------------------------------------
@@ -94,13 +134,15 @@ function startServer(port) {
   }
 
   function setState(updates) {
-    const changed = Object.keys(updates).some(k => appState[k] !== updates[k]);
+    const changed = Object.keys(updates).some(k => {
+      if (k === 'tasks') return JSON.stringify(appState.tasks) !== JSON.stringify(updates.tasks);
+      return appState[k] !== updates[k];
+    });
     Object.assign(appState, updates);
     if (changed) broadcast(appState);
   }
 
   wss.on('connection', (ws) => {
-    // Send current state immediately on connect
     ws.send(JSON.stringify(appState));
   });
 
@@ -142,7 +184,7 @@ function startServer(port) {
       tailProc.stdout.on('data', (chunk) => {
         buf += chunk.toString();
         const lines = buf.split('\n');
-        buf = lines.pop(); // keep incomplete last line
+        buf = lines.pop();
         for (const line of lines) handleLine(line);
       });
 
@@ -166,18 +208,39 @@ function startServer(port) {
     }
   }
 
+  // ---- Plan file watcher --------------------------------------------------
+
+  const planFile = process.env.RALPH_PLAN_FILE || '/app/project/IMPLEMENTATION_PLAN.md';
+  let planPollTimer = null;
+  let lastPlanContent = '';
+
+  function pollPlan() {
+    fs.readFile(planFile, 'utf8', (err, content) => {
+      if (err) return; // file may not exist yet
+      if (content !== lastPlanContent) {
+        lastPlanContent = content;
+        const tasks = parseTasks(content);
+        setState({ tasks });
+      }
+    });
+  }
+
   // ---- Start listening ---------------------------------------------------
 
   server.listen(port, () => {
     const addr = server.address();
     console.log(`Ralph Shop server listening on port ${addr.port}`);
     tailLog();
+    pollPlan();
+    planPollTimer = setInterval(pollPlan, 5000);
   });
 
   // Expose internals for testing / clean shutdown
   server._appState = appState;
   server._wss = wss;
   server._stopDocker = () => {
+    clearInterval(pingInterval);
+    if (planPollTimer) clearInterval(planPollTimer);
     if (retryTimer) clearTimeout(retryTimer);
     if (tailProc) {
       tailProc.removeAllListeners();
@@ -185,6 +248,7 @@ function startServer(port) {
       tailProc.kill();
       tailProc = null;
     }
+    wss.close();
   };
   server._getState = () => appState;
 
@@ -195,7 +259,7 @@ function startServer(port) {
 // Exports
 // ---------------------------------------------------------------------------
 
-module.exports = { parseLogLine, startServer };
+module.exports = { parseLogLine, parseTasks, startServer };
 
 // ---------------------------------------------------------------------------
 // Auto-start
