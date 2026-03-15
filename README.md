@@ -2,7 +2,7 @@
 
 # Ralph Loop v3.0.0
 
-A containerized setup for running autonomous Claude Code loops using the [Ralph Wiggum technique](https://ghuntley.com/ralph/).
+A containerized setup for running autonomous Claude Code loops using the [Ralph Wiggum technique](https://ghuntley.com/ralph/). Now with **Ralph Shop** — a pixel-art 2.5D office visualiser that lets you watch Ralph plan, build, and grab coffee in real-time at `localhost:8080`.
 
 ## How It Works
 
