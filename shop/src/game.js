@@ -70,7 +70,7 @@
     starting: { gx: 11, gy: 1 },
     planning:  { gx: 2,  gy: 3 },
     building:  { gx: 9,  gy: 7 },
-    sleeping:  { gx: 2,  gy: 9 },
+    sleeping:  { gx: 2,  gy: 8 },
     idle:      { gx: 6,  gy: 5 },
     complete:  { gx: 6,  gy: 4 },
     error:     { gx: 6,  gy: 6 },
@@ -221,6 +221,7 @@
       { fn: drawShelf,         gx: 5,  gy: 1 },
       { fn: drawBookshelf,     gx: 9,  gy: 2 },
       { fn: drawWorkbench,     gx: 8,  gy: 5 },
+      { fn: drawChair,         gx: 8.5, gy: 6.5 },
       { fn: drawCoffeeMachine, gx: 1,  gy: 7 },
       { fn: drawPlant,         gx: 10, gy: 9 },
     ];
@@ -247,31 +248,40 @@
       { x: tr.sx, y: tr.sy - 4 },
       { x: tl.sx, y: tl.sy - 4 }
     ]);
-    // Scrawl lines (on the white surface)
-    var s1l = isoToScreen(gx + 0.3, fy);
-    var s1r = isoToScreen(gx + 1.5, fy);
-    var s2l = isoToScreen(gx + 0.3, fy);
-    var s2r = isoToScreen(gx + 1.2, fy);
-    var s3l = isoToScreen(gx + 0.3, fy);
-    var s3r = isoToScreen(gx + 1.8, fy);
+    // "PLAN" text on the board using canvas text API with transform to match board skew
+    var textAnchor = isoToScreen(gx + 0.4, fy);
+    var skewAngle = Math.atan2(TILE_H, TILE_W); // wall slope angle
+    ctx.save();
+    ctx.translate(textAnchor.sx, textAnchor.sy - 30);
+    ctx.transform(1, Math.tan(skewAngle), 0, 1, 0, 0); // horizontal shear
+    ctx.fillStyle = '#2a5a8a';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText('PLAN', 0, 0);
+    ctx.restore();
+
+    // Diagram lines below (skewed to board)
     ctx.fillStyle = CLR_SCRAWL;
+    var dl = isoToScreen(gx + 0.3, fy);
+    var dr = isoToScreen(gx + 2.0, fy);
     fillPoly(ctx, [
-      { x: s1l.sx, y: s1l.sy - 30 },
-      { x: s1r.sx, y: s1r.sy - 30 },
-      { x: s1r.sx, y: s1r.sy - 27 },
-      { x: s1l.sx, y: s1l.sy - 27 }
+      { x: dl.sx, y: dl.sy - 20 },
+      { x: dr.sx, y: dr.sy - 20 },
+      { x: dr.sx, y: dr.sy - 18 },
+      { x: dl.sx, y: dl.sy - 18 }
     ]);
+    var d2r = isoToScreen(gx + 1.5, fy);
     fillPoly(ctx, [
-      { x: s2l.sx, y: s2l.sy - 22 },
-      { x: s2r.sx, y: s2r.sy - 22 },
-      { x: s2r.sx, y: s2r.sy - 19 },
-      { x: s2l.sx, y: s2l.sy - 19 }
+      { x: dl.sx, y: dl.sy - 14 },
+      { x: d2r.sx, y: d2r.sy - 14 },
+      { x: d2r.sx, y: d2r.sy - 12 },
+      { x: dl.sx, y: dl.sy - 12 }
     ]);
+    var d3r = isoToScreen(gx + 1.8, fy);
     fillPoly(ctx, [
-      { x: s3l.sx, y: s3l.sy - 14 },
-      { x: s3r.sx, y: s3r.sy - 14 },
-      { x: s3r.sx, y: s3r.sy - 11 },
-      { x: s3l.sx, y: s3l.sy - 11 }
+      { x: dl.sx, y: dl.sy - 8 },
+      { x: d3r.sx, y: d3r.sy - 8 },
+      { x: d3r.sx, y: d3r.sy - 6 },
+      { x: dl.sx, y: dl.sy - 6 }
     ]);
     // Tray
     var trL = isoToScreen(gx + 0.2, fy);
@@ -328,7 +338,24 @@
     ctx.fillStyle = CLR_GREY;
     ctx.fillRect(st.sx - 2, st.sy - 14, 6, 8);
     // Keyboard
-    drawIsoBox(ctx, gx + 0.6, gy + 0.5, 1.0, 0.4, 2, '#3a3a3a', '#2a2a2a', '#1a1a1a');
+    drawIsoBox(ctx, gx + 0.2, gy + 0.6, 1.0, 0.4, 2, '#3a3a3a', '#2a2a2a', '#1a1a1a');
+  }
+
+  function drawChair(ctx, gx, gy) {
+    // Office chair — pedestal, seat, backrest facing desk (low gy = toward desk)
+    // Pedestal/base
+    var base = isoToScreen(gx + 0.5, gy + 0.5);
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(base.sx - 3, base.sy - 2, 6, 4);
+    // Star base legs
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(base.sx - 6, base.sy, 4, 2);
+    ctx.fillRect(base.sx + 2, base.sy, 4, 2);
+    ctx.fillRect(base.sx - 1, base.sy + 1, 3, 2);
+    // Stem
+    ctx.fillRect(base.sx - 1, base.sy - 6, 3, 5);
+    // Seat
+    drawIsoBox(ctx, gx + 0.05, gy + 0.05, 0.9, 0.9, 8, '#3a3a3a', '#2a2a2a', '#1a1a1a');
   }
 
   function drawCoffeeMachine(ctx, gx, gy) {
@@ -547,6 +574,25 @@
     ctx.fillStyle = CLR_BODY;
     ctx.fillRect(x + 1, y + 15, 14, 12);
 
+    // Arms (swing with walk)
+    ctx.fillStyle = CLR_BODY;
+    if (animFrame % 2 === 0) {
+      ctx.fillRect(x - 2, y + 16, 3, 8);
+      ctx.fillRect(x + 15, y + 18, 3, 8);
+    } else {
+      ctx.fillRect(x - 2, y + 18, 3, 8);
+      ctx.fillRect(x + 15, y + 16, 3, 8);
+    }
+    // Hands
+    ctx.fillStyle = CLR_SKIN;
+    if (animFrame % 2 === 0) {
+      ctx.fillRect(x - 2, y + 23, 3, 2);
+      ctx.fillRect(x + 15, y + 25, 3, 2);
+    } else {
+      ctx.fillRect(x - 2, y + 25, 3, 2);
+      ctx.fillRect(x + 15, y + 23, 3, 2);
+    }
+
     // Overall straps
     ctx.fillStyle = '#2a4a8a';
     ctx.fillRect(x + 3, y + 15, 3, 4);
@@ -586,6 +632,130 @@
   }
 
   // -------------------------------------------------------------------------
+  // Ralph sitting pose (at desk — upper body only, no legs)
+  // -------------------------------------------------------------------------
+
+  function drawRalphSitting(ctx, x, y, animFrame) {
+    // 3/4 back view — Ralph angled toward the monitor (upper-left in iso)
+    // Body shifted right and narrower to show the turn
+
+    // Body (blue overalls) — angled, slightly narrower
+    ctx.fillStyle = CLR_BODY;
+    ctx.fillRect(x + 3, y + 15, 12, 10);
+
+    // Arms reaching toward keyboard (forward and slightly right)
+    // Far arm (left)
+    ctx.fillStyle = CLR_BODY;
+    ctx.fillRect(x + 2, y + 15, 4, 5);
+    ctx.fillRect(x + 3, y + 12, 4, 5);
+    // Far hand on keyboard
+    ctx.fillStyle = CLR_SKIN;
+    if (animFrame % 2 === 0) {
+      ctx.fillRect(x + 4, y + 10, 4, 3);
+    } else {
+      ctx.fillRect(x + 4, y + 11, 4, 3);
+    }
+
+    // Near arm (right)
+    ctx.fillStyle = CLR_BODY;
+    ctx.fillRect(x + 10, y + 15, 4, 4);
+    ctx.fillRect(x + 12, y + 12, 4, 4);
+    // Near hand on keyboard
+    ctx.fillStyle = CLR_SKIN;
+    if (animFrame % 2 === 0) {
+      ctx.fillRect(x + 14, y + 10, 4, 3);
+    } else {
+      ctx.fillRect(x + 14, y + 11, 4, 3);
+    }
+
+    // Overall strap (only near side visible)
+    ctx.fillStyle = '#2a4a8a';
+    ctx.fillRect(x + 11, y + 15, 3, 4);
+
+    // Belt
+    ctx.fillStyle = CLR_BELT;
+    ctx.fillRect(x + 3, y + 23, 12, 2);
+
+    // Head — 3/4 back view, turned toward screen
+    ctx.fillStyle = CLR_SKIN;
+    ctx.fillRect(x + 3, y + 5, 10, 10);
+    // Hair covers most of back of head, small skin sliver on near side
+    ctx.fillStyle = '#8a6a3a';
+    ctx.fillRect(x + 3, y + 7, 7, 6);
+    // Ear on near side
+    ctx.fillStyle = CLR_SKIN;
+    ctx.fillRect(x + 12, y + 8, 2, 3);
+
+    // Hard hat — angled
+    ctx.fillStyle = CLR_HAT;
+    ctx.fillRect(x + 2, y + 1, 12, 5);
+    ctx.fillRect(x, y + 5, 15, 2);
+    ctx.fillStyle = '#ffe040';
+    ctx.fillRect(x + 3, y + 2, 8, 2);
+    ctx.fillStyle = CLR_HAT_D;
+    ctx.fillRect(x, y + 6, 15, 1);
+  }
+
+  // -------------------------------------------------------------------------
+  // Ralph sleeping pose (in bed — lying horizontal)
+  // -------------------------------------------------------------------------
+
+  function drawRalphSleeping(ctx, x, y) {
+    // Draw Ralph lying along the bed's gx axis (upper-left to lower-right, slope 0.5)
+    // Head at the headboard end (low gx = upper-left), feet toward high gx (lower-right)
+    // (x, y) is the anchor point at the bed center
+
+    var s = 0.5; // iso slope
+
+    // Body under blanket — angled bump following the bed
+    ctx.fillStyle = '#3a5878';
+    fillPoly(ctx, [
+      { x: x - 6,  y: y - 3 - 3 },
+      { x: x + 14, y: y - 3 + 7 },
+      { x: x + 14, y: y - 6 + 7 },
+      { x: x + 6,  y: y - 8 + 3 },
+      { x: x - 2,  y: y - 8 - 1 },
+      { x: x - 6,  y: y - 5 - 3 }
+    ]);
+
+    // Head on pillow (at the headboard end — upper-left)
+    ctx.fillStyle = CLR_SKIN;
+    fillPoly(ctx, [
+      { x: x - 12, y: y - 6 - 6 },
+      { x: x - 4,  y: y - 6 - 2 },
+      { x: x - 4,  y: y - 0 - 2 },
+      { x: x - 12, y: y - 0 - 6 }
+    ]);
+
+    // Eyes closed (small dashes on the face, angled)
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(x - 11, y - 8, 3, 1);
+    ctx.fillRect(x - 8,  y - 7, 3, 1);
+
+    // Hat (sideways, angled with the bed)
+    ctx.fillStyle = CLR_HAT;
+    fillPoly(ctx, [
+      { x: x - 15, y: y - 10 - 5 },
+      { x: x - 7,  y: y - 10 - 1 },
+      { x: x - 7,  y: y - 7 - 1 },
+      { x: x - 15, y: y - 7 - 5 }
+    ]);
+    ctx.fillStyle = '#ffe040';
+    fillPoly(ctx, [
+      { x: x - 14, y: y - 9 - 5 },
+      { x: x - 8,  y: y - 9 - 2 },
+      { x: x - 8,  y: y - 8 - 2 },
+      { x: x - 14, y: y - 8 - 5 }
+    ]);
+
+    // Zzz (floating above, angled upward)
+    ctx.fillStyle = 'rgba(200,200,255,0.5)';
+    ctx.fillRect(x - 8, y - 18, 4, 4);
+    ctx.fillRect(x - 5, y - 22, 3, 3);
+    ctx.fillRect(x - 2, y - 25, 2, 2);
+  }
+
+  // -------------------------------------------------------------------------
   // Game-loop state
   // -------------------------------------------------------------------------
 
@@ -607,6 +777,89 @@
   function renderFrame(ctx, state, rX, rY, aFrame) {
     drawOffice(ctx);
     drawRalph(ctx, rX, rY, aFrame);
+    drawChairBackrest(ctx);
+  }
+
+  function drawRalphFacingAway(ctx, x, y, animFrame) {
+    // Same as drawRalph but no eyes/mouth — facing the furniture
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    fillPoly(ctx, [
+      { x: x - 1,  y: y + 35 },
+      { x: x + 17, y: y + 35 },
+      { x: x + 15, y: y + 38 },
+      { x: x + 1,  y: y + 38 }
+    ]);
+
+    // Legs (standing still — no walk animation)
+    ctx.fillStyle = CLR_LEGS;
+    ctx.fillRect(x + 2,  y + 27, 5, 5);
+    ctx.fillRect(x + 9,  y + 27, 5, 5);
+    // Boots
+    ctx.fillStyle = CLR_BOOTS;
+    ctx.fillRect(x + 1,  y + 31, 7, 3);
+    ctx.fillRect(x + 8,  y + 31, 7, 3);
+
+    // Body
+    ctx.fillStyle = CLR_BODY;
+    ctx.fillRect(x + 1, y + 15, 14, 12);
+
+    // Arms at sides (still, working)
+    ctx.fillStyle = CLR_BODY;
+    ctx.fillRect(x - 2, y + 16, 3, 9);
+    ctx.fillRect(x + 15, y + 16, 3, 9);
+    // Hands
+    ctx.fillStyle = CLR_SKIN;
+    ctx.fillRect(x - 2, y + 24, 3, 2);
+    ctx.fillRect(x + 15, y + 24, 3, 2);
+
+    // Overall straps
+    ctx.fillStyle = '#2a4a8a';
+    ctx.fillRect(x + 3, y + 15, 3, 4);
+    ctx.fillRect(x + 10, y + 15, 3, 4);
+
+    // Belt
+    ctx.fillStyle = CLR_BELT;
+    ctx.fillRect(x + 1, y + 25, 14, 2);
+    ctx.fillStyle = CLR_CHROME;
+    ctx.fillRect(x + 7, y + 25, 3, 2);
+
+    // Head — back of head, no face
+    ctx.fillStyle = CLR_SKIN;
+    ctx.fillRect(x + 3, y + 5, 10, 10);
+    // Hair/back of head detail
+    ctx.fillStyle = '#8a6a3a';
+    ctx.fillRect(x + 4, y + 7, 8, 6);
+
+    // Hard hat
+    ctx.fillStyle = CLR_HAT;
+    ctx.fillRect(x + 2, y + 1, 12, 5);
+    ctx.fillRect(x, y + 5, 16, 2);
+    ctx.fillStyle = '#ffe040';
+    ctx.fillRect(x + 4, y + 2, 8, 2);
+    ctx.fillStyle = CLR_HAT_D;
+    ctx.fillRect(x, y + 6, 16, 1);
+  }
+
+  function drawChairBackrest(ctx) {
+    // Draw the chair backrest in front of Ralph (after he's drawn)
+    var chairGX = 8.5, chairGY = 6.5;
+    drawIsoBox(ctx, chairGX + 0.1, chairGY + 0.75, 0.8, 0.15, 20, '#3a3a3a', '#2a2a2a', '#1a1a1a');
+  }
+
+  function renderFramePose(ctx, state, rX, rY, aFrame) {
+    drawOffice(ctx);
+    if (state === 'building') {
+      drawRalphSitting(ctx, rX, rY, aFrame);
+    } else if (state === 'sleeping') {
+      drawRalphSleeping(ctx, rX, rY);
+    } else if (state === 'planning') {
+      drawRalphFacingAway(ctx, rX, rY, aFrame);
+    } else {
+      drawRalph(ctx, rX, rY, aFrame);
+    }
+    drawChairBackrest(ctx);
   }
 
   function gameLoop(ctx) {
@@ -635,7 +888,17 @@
     }
 
     var screen = isoToScreen(ralphGX, ralphGY);
-    renderFrame(ctx, currentState, screen.sx - 8, screen.sy - 36, animFrame);
+    if (moving) {
+      renderFrame(ctx, currentState, screen.sx - 8, screen.sy - 36, animFrame);
+    } else if (currentState === 'sleeping') {
+      // Sleeping Ralph lies on the bed — center on mattress
+      renderFramePose(ctx, currentState, screen.sx + 8, screen.sy - 2, animFrame);
+    } else if (currentState === 'building') {
+      // Sitting Ralph — lower than standing so he's on the chair seat
+      renderFramePose(ctx, currentState, screen.sx - 8, screen.sy - 26, animFrame);
+    } else {
+      renderFramePose(ctx, currentState, screen.sx - 8, screen.sy - 36, animFrame);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -660,6 +923,7 @@
   exports.drawDoor          = drawDoor;
   exports.updateState       = updateState;
   exports.renderFrame       = renderFrame;
+  exports.renderFramePose   = renderFramePose;
   exports.gameLoop          = gameLoop;
 
 })(typeof module !== 'undefined' ? module.exports : (window.Game = {}));

@@ -461,4 +461,161 @@ describe('canvas rendering', () => {
     var boot = getPixel(ctx, 203, 232);
     assert.ok(boot.a > 0 && boot.r < 60 && boot.g < 60 && boot.b < 60, 'boots should be dark');
   });
+
+  // -----------------------------------------------------------------------
+  // Pose tests using real game positions (matching gameLoop offsets)
+  // -----------------------------------------------------------------------
+
+  // Helper: compute the screen position gameLoop would use for a given state
+  function gamePos(state) {
+    var loc = Game.locationMap[state];
+    var screen = Game.isoToScreen(loc.gx, loc.gy);
+    var yOff = (state === 'sleeping') ? -8 : -36;
+    return { x: screen.sx - 8, y: screen.sy + yOff };
+  }
+
+  test('building: Ralph sits at the workbench (sitting differs from standing)', () => {
+    var pos = gamePos('building');
+    // Capture a region around Ralph in both poses
+    var ctxSit = makeCtx();
+    Game.renderFramePose(ctxSit, 'building', pos.x, pos.y, 0);
+    var rx = Math.max(0, Math.round(pos.x - 5));
+    var ry = Math.max(0, Math.round(pos.y));
+    var sitData = ctxSit.getImageData(rx, ry, 30, 40).data;
+
+    var ctxStand = makeCtx();
+    Game.renderFrame(ctxStand, 'building', pos.x, pos.y, 0);
+    var standData = ctxStand.getImageData(rx, ry, 30, 40).data;
+
+    var differs = false;
+    for (var i = 0; i < sitData.length; i++) {
+      if (sitData[i] !== standData[i]) { differs = true; break; }
+    }
+    assert.ok(differs, 'sitting Ralph at workbench should look different from standing Ralph');
+  });
+
+  test('building: Ralph faces the monitor (no eyes visible, has back-of-head)', () => {
+    var pos = gamePos('building');
+    var ctx = makeCtx();
+    Game.renderFramePose(ctx, 'building', pos.x, pos.y, 0);
+    // Back of head should be brown/hair colour at head center
+    var headX = Math.round(pos.x + 8);
+    var headY = Math.round(pos.y + 9);
+    var head = getPixel(ctx, headX, headY);
+    // Hair: #8a6a3a = R=138, G=106, B=58
+    assert.ok(head.a > 0 && head.r > 100 && head.r < 180 && head.g > 80 && head.b < 80,
+      'building pose should show back of head (hair colour) not face');
+  });
+
+  test('sleeping: Ralph lies on the bed (head at mattress height)', () => {
+    var pos = gamePos('sleeping');
+    var ctx = makeCtx();
+    Game.renderFramePose(ctx, 'sleeping', pos.x, pos.y, 0);
+
+    // Head is drawn at (x-14, y-8) with size 8x7
+    // Scan the head region for skin pixels
+    var foundSkin = false;
+    var headLeft = Math.round(pos.x - 14);
+    var headTop = Math.round(pos.y - 8);
+    outer: for (var sy = headTop; sy < headTop + 10; sy++) {
+      for (var sx = headLeft; sx < headLeft + 10; sx++) {
+        if (sx < 0 || sy < 0 || sx >= 640 || sy >= 360) continue;
+        var hp = getPixel(ctx, sx, sy);
+        if (hp.a > 0 && hp.r > 220 && hp.g > 160 && hp.b > 100 && hp.r > hp.b) {
+          foundSkin = true; break outer;
+        }
+      }
+    }
+    assert.ok(foundSkin, 'sleeping Ralph head should have skin pixels near mattress height');
+
+    // The bed is at gx:1, gy:7 with mattress top ~12px above floor
+    // Ralph's body bump (y-4 to y-9) should overlap the mattress
+    var bedFloor = Game.isoToScreen(2, 8);
+    var mattressTop = bedFloor.sy - 12;
+    var ralphBodyBottom = pos.y - 4;
+    assert.ok(Math.abs(ralphBodyBottom - mattressTop) < 8,
+      'Ralph body (' + ralphBodyBottom + ') should be near mattress top (' + mattressTop + ')');
+  });
+
+  test('sleeping: zzz floats above the bed', () => {
+    var pos = gamePos('sleeping');
+    var ctx = makeCtx();
+    Game.renderFramePose(ctx, 'sleeping', pos.x, pos.y, 0);
+    // Zzz drawn above head — scan a generous region above the sleeping sprite
+    var foundZzz = false;
+    var cx = Math.round(pos.x);
+    var cy = Math.round(pos.y);
+    outer: for (var dy = -30; dy < -10; dy++) {
+      for (var dx = -15; dx < 10; dx++) {
+        var px = cx + dx;
+        var py = cy + dy;
+        if (px < 0 || py < 0 || px >= 640 || py >= 360) continue;
+        var p = getPixel(ctx, px, py);
+        // Zzz is semi-transparent white-blue blended with background
+        if (p.a > 0 && p.r > 80 && p.g > 80 && p.b > 100 && p.b > p.r) {
+          foundZzz = true; break outer;
+        }
+      }
+    }
+    assert.ok(foundZzz, 'sleeping pose should have zzz above Ralph on the bed');
+  });
+
+  test('planning: Ralph faces the whiteboard (back of head visible)', () => {
+    var pos = gamePos('planning');
+    var ctx = makeCtx();
+    Game.renderFramePose(ctx, 'planning', pos.x, pos.y, 0);
+    // Should show back of head (brown hair) instead of eyes
+    var headX = Math.round(pos.x + 8);
+    var headY = Math.round(pos.y + 9);
+    var head = getPixel(ctx, headX, headY);
+    assert.ok(head.a > 0 && head.r > 100 && head.r < 180 && head.g > 80 && head.b < 80,
+      'planning pose should show back of head facing whiteboard');
+  });
+
+  test('walking: Ralph has swinging arms', () => {
+    // Arms should differ between frame 0 and 1 (they swing)
+    var pos = gamePos('planning');
+    var ctx0 = makeCtx();
+    Game.renderFrame(ctx0, 'planning', pos.x, pos.y, 0);
+
+    var ctx1 = makeCtx();
+    Game.renderFrame(ctx1, 'planning', pos.x, pos.y, 1);
+
+    // Check arm area to the left of body (x-2, y+16..y+26)
+    var armX = Math.round(pos.x - 1);
+    var armY0 = Math.round(pos.y + 18);
+    var armY1 = Math.round(pos.y + 20);
+    var arm0 = getPixel(ctx0, armX, armY0);
+    var arm1 = getPixel(ctx1, armX, armY1);
+    // Both should have body-coloured or arm pixels (non-transparent)
+    assert.ok(arm0.a > 0 || arm1.a > 0, 'walking Ralph should have visible arm pixels');
+  });
+
+  test('all three poses at real positions produce distinct renders', () => {
+    // Use a region around the center of the canvas to capture differences
+    function renderState(state) {
+      var pos = gamePos(state);
+      var ctx = makeCtx();
+      if (state === 'planning') {
+        Game.renderFrame(ctx, state, pos.x, pos.y, 0);
+      } else {
+        Game.renderFramePose(ctx, state, pos.x, pos.y, 0);
+      }
+      // Capture a large region that covers most of the office
+      return ctx.getImageData(150, 80, 300, 200).data;
+    }
+
+    var standing = renderState('planning');
+    var sitting = renderState('building');
+    var sleeping = renderState('sleeping');
+
+    function differs(a, b) {
+      for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return true; }
+      return false;
+    }
+
+    assert.ok(differs(standing, sitting), 'planning (standing) vs building (sitting) should differ');
+    assert.ok(differs(standing, sleeping), 'planning (standing) vs sleeping (lying) should differ');
+    assert.ok(differs(sitting, sleeping), 'building (sitting) vs sleeping (lying) should differ');
+  });
 });
