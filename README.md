@@ -99,6 +99,41 @@ Before you begin, ensure you have the following software installed on your host 
         ```
     -   *API Key*: Get one from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and add it to your `agent/.env` file as `GEMINI_API_KEY=...`
 
+## Windows (WSL2)
+
+Ralph runs on Windows via WSL2 with no code changes required.
+
+1.  **Install WSL2** with Ubuntu:
+    ```powershell
+    wsl --install -d Ubuntu-24.04
+    ```
+
+2.  **Install Docker Desktop for Windows** with the WSL2 backend enabled (Settings → General → "Use the WSL 2 based engine").
+
+3.  **Clone and run from inside WSL2**, not from `/mnt/c/...`:
+    ```bash
+    # Open your WSL2 terminal
+    cd ~
+    mkdir your-project && cd your-project
+    git clone git@github.com:omdenton/ralph.git agent
+    ```
+
+4.  **Set up credentials inside WSL2**. The `docker-compose.yml` mounts `~/.claude`, `~/.ssh`, etc. from your WSL2 home directory, so make sure your auth tokens and keys live there:
+    ```bash
+    # Install Claude Code CLI inside WSL2
+    npm install -g @anthropic-ai/claude-code
+    claude setup-token
+    # Create agent/.env with your token as usual
+    ```
+
+5.  **Run as normal**:
+    ```bash
+    cd agent
+    make start
+    ```
+
+> **Note:** Do not clone the repo onto the Windows filesystem (`/mnt/c/...`) and run from there — Docker volume mounts and file watchers perform poorly across the WSL2/Windows boundary.
+
 ## Quick Start
 
 ```bash
